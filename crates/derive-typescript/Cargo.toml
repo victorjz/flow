@@ -8,9 +8,9 @@ name = "derive-typescript"
 path = "src/main.rs"
 
 [dependencies]
-doc = { git = "https://github.com/estuary/flow", branch = "master" }
-json = { git = "https://github.com/estuary/flow", branch = "master" }
-proto-flow = { git = "https://github.com/estuary/flow", branch = "master" }
+doc = { git = "https://github.com/estuary/flow", rev = "d1e98bb3300d0d46e1d98894f3c55bbda3407a29" }
+json = { git = "https://github.com/estuary/flow", rev = "d1e98bb3300d0d46e1d98894f3c55bbda3407a29" }
+proto-flow = { git = "https://github.com/estuary/flow", rev = "d1e98bb3300d0d46e1d98894f3c55bbda3407a29" }
 
 anyhow = "1"
 itertools = "0.11"
@@ -29,9 +29,9 @@ tracing-subscriber = { version = "0.3", features = [
 url = "2"
 
 [dev-dependencies]
-models = { git = "https://github.com/estuary/flow", branch = "master" }
-sources = { git = "https://github.com/estuary/flow", branch = "master" }
-tables = { git = "https://github.com/estuary/flow", branch = "master" }
+models = { git = "https://github.com/estuary/flow", rev = "d1e98bb3300d0d46e1d98894f3c55bbda3407a29" }
+sources = { git = "https://github.com/estuary/flow", rev = "d1e98bb3300d0d46e1d98894f3c55bbda3407a29" }
+tables = { git = "https://github.com/estuary/flow", rev = "d1e98bb3300d0d46e1d98894f3c55bbda3407a29" }
 
 insta = "1"
 serde_yaml = "0.9"

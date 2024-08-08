@@ -217,6 +217,11 @@ else
 linux-gnu-binaries: $(GNU_TARGETS)
 endif
 
+.PHONY: derive-typescript-local
+derive-typescript-local: | ${PKGDIR}
+	cd crates/derive-typescript && cargo build --target x86_64-unknown-linux-musl --release
+	docker build --platform linux/amd64 -t ghcr.io/estuary/derive-typescript:local crates/derive-typescript/
+
 .PHONY: linux-musl-binaries
 linux-musl-binaries: | ${PKGDIR}
 	cargo build --target x86_64-unknown-linux-musl --release --locked -p connector-init -p parser -p schemalate

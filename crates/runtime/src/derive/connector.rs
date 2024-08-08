@@ -148,7 +148,7 @@ fn extract_endpoint<'r>(
     } else if connector_type == ConnectorType::Typescript as i32 {
         Ok((
             models::DeriveUsing::Connector(models::ConnectorConfig {
-                image: "ghcr.io/estuary/derive-typescript:dev".to_string(),
+                image: "ghcr.io/estuary/derive-typescript:local".to_string(),
                 config: models::RawValue::from_str(config_json)
                     .context("parsing connector config")?,
             }),
