@@ -45,7 +45,11 @@ expression: json_test(msg)
               "title": "title",
               "description": "desc",
               "default": {"def":"ault"},
-              "exists": "MUST"
+              "exists": "MUST",
+              "numeric": {
+                "minimum": -42.0,
+                "maximum": 7.0
+              }
             }
           }
         ],
