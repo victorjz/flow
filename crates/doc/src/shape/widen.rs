@@ -388,7 +388,14 @@ fn number_bounds(num: json::Number) -> (json::Number, json::Number) {
             let e = n.ilog10();
             (
                 Number::Unsigned(10u64.pow(e)),
-                Number::Unsigned(10u64.checked_pow(e + 1).unwrap_or(u64::MAX)),
+                // Use the maximum i64 as the upper bound if applicable since
+                // many systems have different handling for values that don't
+                // fit into a signed 64-bit integer.
+                Number::Unsigned(if n <= i64::MAX as u64 {
+                    10i64.checked_pow(e + 1).unwrap_or(i64::MAX) as u64
+                } else {
+                    10u64.checked_pow(e + 1).unwrap_or(u64::MAX)
+                }),
             )
         }
         Number::Signed(n) if n >= 0 => unreachable!("invalid Number::Signed (should be negative)"),
@@ -1173,10 +1180,18 @@ mod test {
                 [u64::MAX - 100, 10000000000000000000u64, u64::MAX],
                 [u64::MAX as f64 + 1.0, 1e19, 1e20],
                 [5e31, 1e31, 1e32],
+                [i64::MAX - 1, 1000000000000000000u64, i64::MAX],
+                [i64::MAX, 1000000000000000000u64, i64::MAX],
+                [
+                    i64::MAX as u64 + 1,
+                    1000000000000000000u64,
+                    10000000000000000000u64
+                ],
                 // Negative cases.
                 [-5e31, -1e32, -1e31],
                 [i64::MIN as f64 - 1.0, -1e19, -1e18],
                 [i64::MIN + 1, i64::MIN, -1000000000000000000i64],
+                [i64::MIN, i64::MIN, -1000000000000000000i64],
                 [-8_675_309.5, -10_000_000.0, -1_000_000.0],
                 [-8_675_309, -10_000_000, -1_000_000],
                 [-101.1, -1_000.0, -100.0],
