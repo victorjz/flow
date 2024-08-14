@@ -106,18 +106,27 @@ pub mod inference {
         #[prost(uint32, tag = "6")]
         pub max_length: u32,
     }
-    /// Numeric type-specific inferences, or nil iff types doesn't include
-    /// "integer" or "number".
+    /// Numeric type-specific inferences. Will be nil if types doesn't include
+    /// "integer" or "number", or if the specification was built prior to numeric
+    /// inference existing in the protocol.
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct Numeric {
-        /// Minimum value when the projection is of "integer" or "number" type. Zero
-        /// may mean a minimum of 0 or no inferred minimum.
-        #[prost(double, tag = "1")]
-        pub minimum: f64,
-        /// Maximum value when the projection is of "integer" or "number" type. Zero
-        /// may mean a maximum of 0 or no inferred maximum.
+        /// True if there is an inferred minimum value available for the projection,
+        /// otherwise False.
+        #[prost(bool, tag = "1")]
+        pub has_minimum: bool,
+        /// Minimum value when the projection is of "integer" or "number" type. See
+        /// has_minimum for if a zero value should be interpreted as 0 or unknown.
         #[prost(double, tag = "2")]
+        pub minimum: f64,
+        /// True if there is an inferred maximum value available for the projection,
+        /// otherwise False.
+        #[prost(bool, tag = "3")]
+        pub has_maximum: bool,
+        /// Maximum value when the projection is of "integer" or "number" type. See
+        /// has_maximum for if a zero value should be interpreted as 0 or unknown.
+        #[prost(double, tag = "4")]
         pub maximum: f64,
     }
     /// Exists enumerates the possible states of existence for a location.

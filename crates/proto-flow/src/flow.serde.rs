@@ -2840,15 +2840,27 @@ impl serde::Serialize for inference::Numeric {
     {
         use serde::ser::SerializeStruct;
         let mut len = 0;
+        if self.has_minimum {
+            len += 1;
+        }
         if self.minimum != 0. {
+            len += 1;
+        }
+        if self.has_maximum {
             len += 1;
         }
         if self.maximum != 0. {
             len += 1;
         }
         let mut struct_ser = serializer.serialize_struct("flow.Inference.Numeric", len)?;
+        if self.has_minimum {
+            struct_ser.serialize_field("hasMinimum", &self.has_minimum)?;
+        }
         if self.minimum != 0. {
             struct_ser.serialize_field("minimum", &self.minimum)?;
+        }
+        if self.has_maximum {
+            struct_ser.serialize_field("hasMaximum", &self.has_maximum)?;
         }
         if self.maximum != 0. {
             struct_ser.serialize_field("maximum", &self.maximum)?;
@@ -2863,13 +2875,19 @@ impl<'de> serde::Deserialize<'de> for inference::Numeric {
         D: serde::Deserializer<'de>,
     {
         const FIELDS: &[&str] = &[
+            "has_minimum",
+            "hasMinimum",
             "minimum",
+            "has_maximum",
+            "hasMaximum",
             "maximum",
         ];
 
         #[allow(clippy::enum_variant_names)]
         enum GeneratedField {
+            HasMinimum,
             Minimum,
+            HasMaximum,
             Maximum,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
@@ -2892,7 +2910,9 @@ impl<'de> serde::Deserialize<'de> for inference::Numeric {
                         E: serde::de::Error,
                     {
                         match value {
+                            "hasMinimum" | "has_minimum" => Ok(GeneratedField::HasMinimum),
                             "minimum" => Ok(GeneratedField::Minimum),
+                            "hasMaximum" | "has_maximum" => Ok(GeneratedField::HasMaximum),
                             "maximum" => Ok(GeneratedField::Maximum),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
@@ -2913,10 +2933,18 @@ impl<'de> serde::Deserialize<'de> for inference::Numeric {
                 where
                     V: serde::de::MapAccess<'de>,
             {
+                let mut has_minimum__ = None;
                 let mut minimum__ = None;
+                let mut has_maximum__ = None;
                 let mut maximum__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
+                        GeneratedField::HasMinimum => {
+                            if has_minimum__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("hasMinimum"));
+                            }
+                            has_minimum__ = Some(map_.next_value()?);
+                        }
                         GeneratedField::Minimum => {
                             if minimum__.is_some() {
                                 return Err(serde::de::Error::duplicate_field("minimum"));
@@ -2924,6 +2952,12 @@ impl<'de> serde::Deserialize<'de> for inference::Numeric {
                             minimum__ = 
                                 Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
                             ;
+                        }
+                        GeneratedField::HasMaximum => {
+                            if has_maximum__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("hasMaximum"));
+                            }
+                            has_maximum__ = Some(map_.next_value()?);
                         }
                         GeneratedField::Maximum => {
                             if maximum__.is_some() {
@@ -2936,7 +2970,9 @@ impl<'de> serde::Deserialize<'de> for inference::Numeric {
                     }
                 }
                 Ok(inference::Numeric {
+                    has_minimum: has_minimum__.unwrap_or_default(),
                     minimum: minimum__.unwrap_or_default(),
+                    has_maximum: has_maximum__.unwrap_or_default(),
                     maximum: maximum__.unwrap_or_default(),
                 })
             }
