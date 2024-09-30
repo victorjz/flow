@@ -22,6 +22,8 @@ import (
 	"github.com/estuary/flow/go/shuffle"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/sirupsen/logrus"
 	"go.gazette.dev/core/allocator"
 	"go.gazette.dev/core/broker/client"
 	pb "go.gazette.dev/core/broker/protocol"
@@ -254,11 +256,12 @@ func (t *taskReader[TaskSpec]) Coordinator() *shuffle.Coordinator { return t.coo
 // and then logs the final exit status of the shard.
 func (t *taskBase[TaskSpec]) heartbeatLoop(shard consumer.Shard) {
 	var (
+		id = shard.Spec().Id
 		// Period between regularly-published stat intervals.
 		// This period must cleanly divide into one hour!
 		period = 3 * time.Minute
 		// Jitters when interval stats are written cluster-wide.
-		jitter = intervalJitter(period, shard.FQN())
+		jitter = intervalJitter(period, id)
 		// Op notified when the shard fails.
 		op = shard.PrimaryLoop()
 	)
@@ -289,8 +292,33 @@ func (t *taskBase[TaskSpec]) heartbeatLoop(shard consumer.Shard) {
 				"assignment", shard.Assignment().Decoded,
 			)
 
-			// TODO(johnny): Notify control-plane of failure.
+			// Notify control-plane of the failure.
+			var now = time.Now()
 
+			var claims = pb.Claims{
+				RegisteredClaims: jwt.RegisteredClaims{
+					Subject:   id.String(),
+					IssuedAt:  jwt.NewNumericDate(now),
+					ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour)),
+				},
+			}
+			var token, postErr = t.host.controlPlane.signClaims(claims)
+
+			var request = struct {
+				Token string `json:"token"`
+				Error string `json:"error"`
+			}{token, err.Error()}
+
+			var response struct {
+				// No response fields.
+			}
+
+			if postErr == nil {
+				postErr = callControlAPI(shard.Context(), t.host.controlPlane, "/notify/shard-failure", &request, &response)
+			}
+			if postErr != nil {
+				logrus.WithField("err", postErr).Error("failed to notify control plane of shard failure")
+			}
 			return
 		}
 	}
@@ -325,9 +353,9 @@ func durationToNextInterval(now time.Time, period time.Duration) time.Duration {
 
 // intervalJitter returns a globally consistent, unique jitter offset for `name`
 // so that heartbeats are uniformly distributed over time, in aggregate.
-func intervalJitter(period time.Duration, name string) time.Duration {
+func intervalJitter(period time.Duration, id pc.ShardID) time.Duration {
 	var w = fnv.New32()
-	w.Write([]byte(name))
+	w.Write([]byte(id))
 	return time.Duration(w.Sum32()%uint32(period.Seconds())) * time.Second
 }
 

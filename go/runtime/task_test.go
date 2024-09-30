@@ -7,16 +7,17 @@ import (
 	pf "github.com/estuary/flow/go/protocols/flow"
 	"github.com/estuary/flow/go/protocols/ops"
 	"github.com/stretchr/testify/require"
+	pc "go.gazette.dev/core/consumer/protocol"
 )
 
 func TestIntervalJitterAndDurations(t *testing.T) {
 	const period = time.Minute
 
 	for _, tc := range []struct {
-		n string
-		i time.Duration
+		id pc.ShardID
+		i  time.Duration
 	}{{"foo", 35}, {"bar", 52}, {"baz", 0}, {"bing", 39}, {"quip", 56}} {
-		require.Equal(t, time.Second*tc.i, intervalJitter(period, tc.n), tc.n)
+		require.Equal(t, time.Second*tc.i, intervalJitter(period, tc.id), tc.id)
 
 	}
 

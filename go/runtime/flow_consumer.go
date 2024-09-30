@@ -61,6 +61,8 @@ func (c *FlowConsumerConfig) Execute(args []string) error {
 type FlowConsumer struct {
 	// Configuration of this FlowConsumer.
 	config *FlowConsumerConfig
+	// Control plane of this consumer, or nil in testing contexts.
+	controlPlane *controlPlane
 	// Running consumer.service.
 	service *consumer.Service
 	// Shared catalog builds.
@@ -208,11 +210,10 @@ func (f *FlowConsumer) InitApplication(args runconsumer.InitArgs) error {
 		return fmt.Errorf("catalog builds service: %w", err)
 	}
 
-	var controlPlane *controlPlane
 	var localAuthorizer = args.Service.Authorizer
 
 	if keyedAuth, ok := localAuthorizer.(*auth.KeyedAuth); ok && !config.Flow.TestAPIs {
-		controlPlane = newControlPlane(
+		f.controlPlane = newControlPlane(
 			keyedAuth,
 			config.Flow.DataPlaneFQDN,
 			config.Flow.ControlAPI,
@@ -221,7 +222,7 @@ func (f *FlowConsumer) InitApplication(args runconsumer.InitArgs) error {
 		// Wrap the underlying KeyedAuth Authorizer to use the control-plane's Authorize API.
 		// Next unwrap the raw JournalClient from its current AuthJournalClient,
 		// and then replace it with one built using our wrapped Authorizer.
-		args.Service.Authorizer = newControlPlaneAuthorizer(controlPlane)
+		args.Service.Authorizer = newControlPlaneAuthorizer(f.controlPlane)
 		var rawClient = args.Service.Journals.(*pb.ComposedRoutedJournalClient).JournalClient.(*pb.AuthJournalClient).Inner
 		args.Service.Journals.(*pb.ComposedRoutedJournalClient).JournalClient = pb.NewAuthJournalClient(rawClient, args.Service.Authorizer)
 	}

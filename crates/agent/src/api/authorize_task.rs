@@ -15,28 +15,7 @@ pub async fn authorize_task(
 
 #[tracing::instrument(skip(app), err(level = tracing::Level::WARN))]
 async fn do_authorize_task(app: &App, Request { token }: &Request) -> anyhow::Result<Response> {
-    let jsonwebtoken::TokenData { header, mut claims }: jsonwebtoken::TokenData<
-        proto_gazette::Claims,
-    > = {
-        // In this pass we do not validate the signature,
-        // because we don't yet know which data-plane the JWT is signed by.
-        let empty_key = jsonwebtoken::DecodingKey::from_secret(&[]);
-        let mut validation = jsonwebtoken::Validation::default();
-        validation.insecure_disable_signature_validation();
-        jsonwebtoken::decode(token, &empty_key, &validation)
-    }?;
-    tracing::debug!(?claims, ?header, "decoded authorization request");
-
-    let shard_id = claims.sub.as_str();
-    if shard_id.is_empty() {
-        anyhow::bail!("missing required shard ID (`sub` claim)");
-    }
-
-    let shard_data_plane_fqdn = claims.iss.as_str();
-    if shard_data_plane_fqdn.is_empty() {
-        anyhow::bail!("missing required shard data-plane FQDN (`iss` claim)");
-    }
-
+    let (header, mut claims) = super::parse_untrusted_data_plane_claims(token)?;
     let journal_name_or_prefix = labels::expect_one(claims.sel.include(), "name")?.to_owned();
 
     // Require the request was signed with the AUTHORIZE capability,
@@ -62,8 +41,8 @@ async fn do_authorize_task(app: &App, Request { token }: &Request) -> anyhow::Re
     match Snapshot::evaluate(&app.snapshot, claims.iat, |snapshot: &Snapshot| {
         evaluate_authorization(
             snapshot,
-            shard_id,
-            shard_data_plane_fqdn,
+            &claims.sub,
+            &claims.iss,
             token,
             &journal_name_or_prefix,
             required_role,
@@ -104,47 +83,13 @@ fn evaluate_authorization(
     journal_name_or_prefix: &str,
     required_role: models::Capability,
 ) -> anyhow::Result<(jsonwebtoken::EncodingKey, String, String)> {
-    // Map `claims.sub`, a Shard ID, into its task.
-    let task = tasks
-        .binary_search_by(|task| {
-            if shard_id.starts_with(&task.shard_template_id) {
-                std::cmp::Ordering::Equal
-            } else {
-                task.shard_template_id.as_str().cmp(shard_id)
-            }
-        })
-        .ok()
-        .map(|index| &tasks[index]);
-
-    // Map `claims.iss`, a data-plane FQDN, into its task-matched data-plane.
-    let task_data_plane = task.and_then(|task| {
-        data_planes
-            .get_by_key(&task.data_plane_id)
-            .filter(|data_plane| data_plane.data_plane_fqdn == shard_data_plane_fqdn)
-    });
-
-    let (Some(task), Some(task_data_plane)) = (task, task_data_plane) else {
-        anyhow::bail!(
-            "task shard {shard_id} within data-plane {shard_data_plane_fqdn} is not known"
-        )
-    };
-
-    // Attempt to find an HMAC key of this data-plane which validates against the request token.
-    let validation = jsonwebtoken::Validation::default();
-    let mut verified = false;
-
-    for hmac_key in &task_data_plane.hmac_keys {
-        let key = jsonwebtoken::DecodingKey::from_base64_secret(hmac_key)
-            .context("invalid data-plane hmac key")?;
-
-        if jsonwebtoken::decode::<proto_gazette::Claims>(token, &key, &validation).is_ok() {
-            verified = true;
-            break;
-        }
-    }
-    if !verified {
-        anyhow::bail!("no data-plane keys validated against the token signature");
-    }
+    let (task, task_data_plane) = super::verify_data_plane_claims(
+        data_planes,
+        tasks,
+        shard_id,
+        shard_data_plane_fqdn,
+        token,
+    )?;
 
     // Map a required `name` journal label selector into its collection.
     let Some(collection) = collections

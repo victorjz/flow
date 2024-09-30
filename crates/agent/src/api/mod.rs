@@ -5,6 +5,7 @@ mod authorize_task;
 mod authorize_user_collection;
 mod authorize_user_task;
 mod create_data_plane;
+mod notify_shard_failure;
 mod snapshot;
 mod update_l2_reporting;
 
@@ -125,6 +126,10 @@ pub fn build_router(
             post(update_l2_reporting::update_l2_reporting)
                 .route_layer(axum::middleware::from_fn_with_state(app.clone(), authorize)),
         )
+        .route(
+            "/notify/shard-failure",
+            post(notify_shard_failure::notify_shard_failure),
+        )
         .layer(tower_http::trace::TraceLayer::new_for_http())
         .layer(cors)
         .with_state(app);
@@ -238,4 +243,82 @@ fn maybe_rewrite_address(external: bool, address: &str) -> String {
     } else {
         address.to_string()
     }
+}
+
+// Parse a data-plane claims token without verifying it's signature.
+fn parse_untrusted_data_plane_claims(
+    token: &str,
+) -> anyhow::Result<(jsonwebtoken::Header, proto_gazette::Claims)> {
+    let jsonwebtoken::TokenData { header, claims }: jsonwebtoken::TokenData<proto_gazette::Claims> =
+        {
+            // In this pass we do not validate the signature,
+            // because we don't yet know which data-plane the JWT is signed by.
+            let empty_key = jsonwebtoken::DecodingKey::from_secret(&[]);
+            let mut validation = jsonwebtoken::Validation::default();
+            validation.insecure_disable_signature_validation();
+            jsonwebtoken::decode(token, &empty_key, &validation)
+        }?;
+
+    if claims.sub.is_empty() {
+        anyhow::bail!("missing required shard ID (`sub` claim)");
+    }
+    if claims.iss.is_empty() {
+        anyhow::bail!("missing required shard data-plane FQDN (`iss` claim)");
+    }
+
+    tracing::debug!(?claims, ?header, "decoded authorization request");
+
+    Ok((header, claims))
+}
+
+fn verify_data_plane_claims<'s>(
+    data_planes: &'s tables::DataPlanes,
+    tasks: &'s [snapshot::SnapshotTask],
+    shard_id: &str,
+    shard_data_plane_fqdn: &str,
+    token: &str,
+) -> anyhow::Result<(&'s snapshot::SnapshotTask, &'s tables::DataPlane)> {
+    // Map `shard_id` into its task.
+    let task = tasks
+        .binary_search_by(|task| {
+            if shard_id.starts_with(&task.shard_template_id) {
+                std::cmp::Ordering::Equal
+            } else {
+                task.shard_template_id.as_str().cmp(shard_id)
+            }
+        })
+        .ok()
+        .map(|index| &tasks[index]);
+
+    // Map `shard_data_plane_fqdn` into its task-matched data-plane.
+    let task_data_plane = task.and_then(|task| {
+        data_planes
+            .get_by_key(&task.data_plane_id)
+            .filter(|data_plane| data_plane.data_plane_fqdn == shard_data_plane_fqdn)
+    });
+
+    let (Some(task), Some(task_data_plane)) = (task, task_data_plane) else {
+        anyhow::bail!(
+            "task shard {shard_id} within data-plane {shard_data_plane_fqdn} is not known"
+        )
+    };
+
+    // Attempt to find an HMAC key of this data-plane which validates against the request token.
+    let validation = jsonwebtoken::Validation::default();
+    let mut verified = false;
+
+    for hmac_key in &task_data_plane.hmac_keys {
+        let key = jsonwebtoken::DecodingKey::from_base64_secret(hmac_key)
+            .context("invalid data-plane hmac key")?;
+
+        if jsonwebtoken::decode::<proto_gazette::Claims>(token, &key, &validation).is_ok() {
+            verified = true;
+            break;
+        }
+    }
+    if !verified {
+        anyhow::bail!("no data-plane keys validated against the token signature");
+    }
+
+    Ok((task, task_data_plane))
 }
