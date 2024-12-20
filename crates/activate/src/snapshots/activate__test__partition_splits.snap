@@ -1,13 +1,14 @@
 ---
 source: crates/activate/src/lib.rs
-expression: "json!([\"splits\", splits, \"partition_changes\", partition_changes])"
+expression: "json!([\"splits\", (lhs, rhs), \"partition_changes\", partition_changes])"
 ---
 [
   "splits",
   [
-    [
-      "example/collection/2020202020202020/a_bool=%_true/a_str=a-val/pivot=10000000",
-      {
+    {
+      "append_bound": 112233,
+      "flags": 8675,
+      "labels": {
         "labels": [
           {
             "name": "estuary.dev/field/a_bool",
@@ -31,11 +32,14 @@ expression: "json!([\"splits\", splits, \"partition_changes\", partition_changes
           }
         ]
       },
-      111
-    ],
-    [
-      "example/collection/2020202020202020/a_bool=%_true/a_str=a-val/pivot=28000000",
-      {
+      "mod_revision": 111,
+      "name": "example/collection/2020202020202020/a_bool=%_true/a_str=a-val/pivot=10000000",
+      "replication": 42
+    },
+    {
+      "append_bound": 0,
+      "flags": 8675,
+      "labels": {
         "labels": [
           {
             "name": "estuary.dev/field/a_bool",
@@ -59,8 +63,10 @@ expression: "json!([\"splits\", splits, \"partition_changes\", partition_changes
           }
         ]
       },
-      0
-    ]
+      "mod_revision": 0,
+      "name": "example/collection/2020202020202020/a_bool=%_true/a_str=a-val/pivot=28000000",
+      "replication": 42
+    }
   ],
   "partition_changes",
   [
@@ -68,7 +74,8 @@ expression: "json!([\"splits\", splits, \"partition_changes\", partition_changes
       "Journal": {
         "expectModRevision": "111",
         "upsert": {
-          "flags": 4,
+          "appendBound": "112233",
+          "flags": 8675,
           "fragment": {
             "compressionCodec": "GZIP",
             "flushInterval": "900s",
@@ -117,14 +124,14 @@ expression: "json!([\"splits\", splits, \"partition_changes\", partition_changes
           },
           "maxAppendRate": "4194304",
           "name": "example/collection/2020202020202020/a_bool=%_true/a_str=a-val/pivot=10000000",
-          "replication": 3
+          "replication": 42
         }
       }
     },
     {
       "Journal": {
         "upsert": {
-          "flags": 4,
+          "flags": 8675,
           "fragment": {
             "compressionCodec": "GZIP",
             "flushInterval": "900s",
@@ -173,7 +180,7 @@ expression: "json!([\"splits\", splits, \"partition_changes\", partition_changes
           },
           "maxAppendRate": "4194304",
           "name": "example/collection/2020202020202020/a_bool=%_true/a_str=a-val/pivot=28000000",
-          "replication": 3
+          "replication": 42
         }
       }
     }

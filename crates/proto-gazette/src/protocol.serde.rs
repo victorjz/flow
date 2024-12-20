@@ -1962,6 +1962,9 @@ impl serde::Serialize for JournalSpec {
         if self.max_append_rate != 0 {
             len += 1;
         }
+        if self.append_bound != 0 {
+            len += 1;
+        }
         let mut struct_ser = serializer.serialize_struct("protocol.JournalSpec", len)?;
         if !self.name.is_empty() {
             struct_ser.serialize_field("name", &self.name)?;
@@ -1983,6 +1986,11 @@ impl serde::Serialize for JournalSpec {
             #[allow(clippy::needless_borrows_for_generic_args)]
             struct_ser.serialize_field("maxAppendRate", ToString::to_string(&self.max_append_rate).as_str())?;
         }
+        if self.append_bound != 0 {
+            #[allow(clippy::needless_borrow)]
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            struct_ser.serialize_field("appendBound", ToString::to_string(&self.append_bound).as_str())?;
+        }
         struct_ser.end()
     }
 }
@@ -2000,6 +2008,8 @@ impl<'de> serde::Deserialize<'de> for JournalSpec {
             "flags",
             "max_append_rate",
             "maxAppendRate",
+            "append_bound",
+            "appendBound",
         ];
 
         #[allow(clippy::enum_variant_names)]
@@ -2010,6 +2020,7 @@ impl<'de> serde::Deserialize<'de> for JournalSpec {
             Fragment,
             Flags,
             MaxAppendRate,
+            AppendBound,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -2037,6 +2048,7 @@ impl<'de> serde::Deserialize<'de> for JournalSpec {
                             "fragment" => Ok(GeneratedField::Fragment),
                             "flags" => Ok(GeneratedField::Flags),
                             "maxAppendRate" | "max_append_rate" => Ok(GeneratedField::MaxAppendRate),
+                            "appendBound" | "append_bound" => Ok(GeneratedField::AppendBound),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -2062,6 +2074,7 @@ impl<'de> serde::Deserialize<'de> for JournalSpec {
                 let mut fragment__ = None;
                 let mut flags__ = None;
                 let mut max_append_rate__ = None;
+                let mut append_bound__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
                         GeneratedField::Name => {
@@ -2106,6 +2119,14 @@ impl<'de> serde::Deserialize<'de> for JournalSpec {
                                 Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
                             ;
                         }
+                        GeneratedField::AppendBound => {
+                            if append_bound__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("appendBound"));
+                            }
+                            append_bound__ = 
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
+                        }
                     }
                 }
                 Ok(JournalSpec {
@@ -2115,6 +2136,7 @@ impl<'de> serde::Deserialize<'de> for JournalSpec {
                     fragment: fragment__,
                     flags: flags__.unwrap_or_default(),
                     max_append_rate: max_append_rate__.unwrap_or_default(),
+                    append_bound: append_bound__.unwrap_or_default(),
                 })
             }
         }

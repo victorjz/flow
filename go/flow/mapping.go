@@ -68,14 +68,15 @@ func (m *Mapper) Map(mappable message.Mappable) (pb.Journal, string, error) {
 
 	for attempt := 0; true; attempt++ {
 		// Pick an available partition.
-		var picked = pickPartition(logicalPrefix, hexKey, msg.List.List().Journals)
+		var picked, modRevision = pickPartition(logicalPrefix, hexKey, msg.List.List().Journals)
 
-		if picked != nil {
-			// Partition already exists (the common case).
+		if picked != nil && picked.Flags == pb.JournalSpec_O_RDWR {
+			// Partition already exists and is not suspended (the common case).
 			return picked.Name, picked.LabelSet.ValueOf(labels.ContentType), nil
 		}
 
-		// Build and attempt to apply a new physical partition for this logical partition.
+		// Build and attempt to apply a physical partition for this logical partition.
+		// It may be new, or it may be an update which resumes a suspended partition.
 		var applySpec, err = BuildPartitionSpec(msg.Spec.PartitionTemplate,
 			// Build runtime labels of this partition from encoded logical
 			// partition values, and an initial single physical partition.
@@ -101,13 +102,13 @@ func (m *Mapper) Map(mappable message.Mappable) (pb.Journal, string, error) {
 			Changes: []pb.ApplyRequest_Change{
 				{
 					Upsert:            applySpec,
-					ExpectModRevision: 0, // Expect it's created by this Apply.
+					ExpectModRevision: modRevision,
 				},
 			},
 		})
 
 		if err != nil {
-			return "", "", fmt.Errorf("creating partition %s: %w", applySpec.Name, err)
+			return "", "", fmt.Errorf("upsert of partition %s: %w", applySpec.Name, err)
 		} else if resp.Status == pb.Status_ETCD_TRANSACTION_FAILED {
 			// We lost a race to create this journal.
 			//
@@ -123,8 +124,9 @@ func (m *Mapper) Map(mappable message.Mappable) (pb.Journal, string, error) {
 			log.WithFields(log.Fields{
 				"attempt":     attempt,
 				"journal":     applySpec.Name,
+				"modRevision": modRevision,
 				"readThrough": resp.Header.Etcd.Revision,
-			}).Info("created partition")
+			}).Info("upsert of partition")
 			createdPartitionsCounters.WithLabelValues(msg.Spec.Name.String()).Inc()
 		} else {
 			return "", "", fmt.Errorf("creating partition %s: %s", applySpec.Name, resp.Status)
@@ -165,7 +167,7 @@ func appendHex32(b []byte, n uint32) []byte {
 	return strconv.AppendUint(b, uint64(n), 16)
 }
 
-func pickPartition(logicalPrefix []byte, hexKey []byte, journals []pb.ListResponse_Journal) *pb.JournalSpec {
+func pickPartition(logicalPrefix []byte, hexKey []byte, journals []pb.ListResponse_Journal) (*pb.JournalSpec, int64) {
 	// Find the first physical partition having `logicalPrefix` as its Name prefix
 	// and label KeyEnd > `hexKey`. Note we're performing the latter comparison in
 	// a hex-encoded space.
@@ -189,15 +191,15 @@ func pickPartition(logicalPrefix []byte, hexKey []byte, journals []pb.ListRespon
 	})
 
 	if ind == len(journals) {
-		return nil
+		return nil, 0
 	} else if p := &journals[ind].Spec; len(p.Name) < len(logicalPrefix) {
-		return nil
+		return nil, 0
 	} else if !bytes.Equal([]byte(p.Name[:len(logicalPrefix)]), logicalPrefix) {
-		return nil
+		return nil, 0
 	} else if p.LabelSet.ValueOf(labels.KeyBegin) > string(hexKey) {
-		return nil
+		return nil, 0
 	} else {
-		return p
+		return p, journals[ind].ModRevision
 	}
 }
 

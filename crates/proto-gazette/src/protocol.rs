@@ -68,6 +68,23 @@ pub struct JournalSpec {
     /// smaller of the journal vs global rate.
     #[prost(int64, tag = "7")]
     pub max_append_rate: i64,
+    /// Lower-bound offset from which appends to this journal should proceed.
+    /// If the synchronized offset of the journal topology is less than this value,
+    /// then the next written offset is skipped forward to the indicated bound.
+    ///
+    /// Append bounds are part of a protocol for "suspending" journals.
+    /// For a given target journal, the overall workflow is to:
+    ///   - Update the JournalSpec flags to mark the journal read-only.
+    ///   - Measure the journals current write head, which cannot now increase.
+    ///   - Update the JournalSpec to set its append bound to the observed value,
+    ///     and to lower replication (optionally all the way to zero).
+    ///
+    /// The journal can later be trivially resumed by increasing its replication
+    /// and updating its flags to mark it as write-able. The resulting broker
+    /// topology will resume appends at the persisted offset bound.
+    ///
+    #[prost(int64, tag = "8")]
+    pub append_bound: i64,
 }
 /// Nested message and enum types in `JournalSpec`.
 pub mod journal_spec {

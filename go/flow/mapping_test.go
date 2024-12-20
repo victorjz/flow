@@ -42,63 +42,46 @@ func TestPartitionPicking(t *testing.T) {
 		{Spec: pb.JournalSpec{
 			Name:     "a/collection/bar=32/foo=A/pivot=00",
 			LabelSet: pb.MustLabelSet(flowLabels.KeyBegin, "00", flowLabels.KeyEnd, "77"),
-		}},
+		}, ModRevision: 1},
 		{Spec: pb.JournalSpec{
 			Name:     "a/collection/bar=32/foo=A/pivot=77",
 			LabelSet: pb.MustLabelSet(flowLabels.KeyBegin, "78", flowLabels.KeyEnd, "dd"),
-		}},
+		}, ModRevision: 1},
 		{Spec: pb.JournalSpec{
 			Name:     "a/collection/bar=42/foo=A/pivot=00",
 			LabelSet: pb.MustLabelSet(flowLabels.KeyBegin, "00", flowLabels.KeyEnd, "dd"),
-		}},
+		}, ModRevision: 1},
 		{Spec: pb.JournalSpec{
 			Name:     "b/collection/qib=abcabcabcabcabcabcabc/pivot=00",
 			LabelSet: pb.MustLabelSet(flowLabels.KeyBegin, "00", flowLabels.KeyEnd, "dd"),
-		}},
+		}, ModRevision: 1},
 		{Spec: pb.JournalSpec{
 			Name:     "b/collection/qib=d/pivot=00",
 			LabelSet: pb.MustLabelSet(flowLabels.KeyBegin, "00", flowLabels.KeyEnd, "dd"),
-		}},
+		}, ModRevision: 1},
 	}
 
-	require.Equal(t,
-		"a/collection/bar=32/foo=A/pivot=00",
-		pickPartition([]byte("a/collection/bar=32/foo=A/"), []byte("23"), journals).Name.String(),
-	)
-	require.Equal(t,
-		"a/collection/bar=32/foo=A/pivot=77",
-		pickPartition([]byte("a/collection/bar=32/foo=A/"), []byte("90"), journals).Name.String(),
-	)
-	require.Nil(t,
-		pickPartition([]byte("a/collection/bar=32/foo=A/"), []byte("ef"), journals), // Out of range.
-	)
-	require.Equal(t,
-		"a/collection/bar=42/foo=A/pivot=00",
-		pickPartition([]byte("a/collection/bar=42/foo=A/"), []byte("ab"), journals).Name.String(),
-	)
-	require.Equal(t,
-		"a/collection/bar=32/foo=A/pivot=00",
-		pickPartition([]byte("a/collection/bar=32/foo=A/"), []byte("77"), journals).Name.String(),
-	)
-	require.Equal(t,
-		"a/collection/bar=42/foo=A/pivot=00",
-		pickPartition([]byte("a/collection/bar=42/foo=A/"), []byte("dd"), journals).Name.String(),
-	)
-	require.Nil(t,
-		pickPartition([]byte("a/collection/bar=52/foo=A/"), []byte("00"), journals),
-	)
-	require.Nil(t,
-		pickPartition([]byte("b/collection/qib=ab/"), []byte("00"), journals),
-	)
-	require.Equal(t,
-		"b/collection/qib=abcabcabcabcabcabcabc/pivot=00",
-		pickPartition([]byte("b/collection/qib=abcabcabcabcabcabcabc/"), []byte("00"), journals).Name.String(),
-	)
-	require.Equal(t,
-		"b/collection/qib=d/pivot=00",
-		pickPartition([]byte("b/collection/qib=d/"), []byte("dc"), journals).Name.String(),
-	)
+	var verify = func(expect string, prefix string, hexKey string) {
+		var picked, modRevision = pickPartition([]byte(prefix), []byte(hexKey), journals)
+		if expect != "" {
+			require.Equal(t, expect, picked.Name.String())
+			require.Equal(t, int64(1), modRevision)
+		} else {
+			require.Nil(t, picked)
+			require.Equal(t, int64(0), modRevision)
+		}
+	}
 
+	verify("a/collection/bar=32/foo=A/pivot=00", "a/collection/bar=32/foo=A/", "23")
+	verify("a/collection/bar=32/foo=A/pivot=77", "a/collection/bar=32/foo=A/", "90")
+	verify("", "a/collection/bar=32/foo=A/", "ef") // Out of range.
+	verify("a/collection/bar=42/foo=A/pivot=00", "a/collection/bar=42/foo=A/", "ab")
+	verify("a/collection/bar=32/foo=A/pivot=00", "a/collection/bar=32/foo=A/", "77")
+	verify("a/collection/bar=42/foo=A/pivot=00", "a/collection/bar=42/foo=A/", "dd")
+	verify("", "a/collection/bar=52/foo=A/", "00")
+	verify("", "b/collection/qib=ab/", "00")
+	verify("b/collection/qib=abcabcabcabcabcabcabc/pivot=00", "b/collection/qib=abcabcabcabcabcabcabc/", "00")
+	verify("b/collection/qib=d/pivot=00", "b/collection/qib=d/", "dc")
 }
 
 func TestAppendHexEncoding(t *testing.T) {
