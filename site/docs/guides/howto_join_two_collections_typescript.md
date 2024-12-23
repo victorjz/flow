@@ -155,7 +155,7 @@ In the schema definition, we specify what structure we want the documents of the
 
 Because you are going to implement a 1-to-many join using the two source collections, it’s important to pay attention to what reduction strategy Flow uses.
 
-There are two `merge` strategies defined here, one for the `customers_with_orders` collection and for the nested `orders` array. 
+There are two `merge` strategies defined here, one for the `customers_with_orders` collection and another for the nested `orders` array. 
 
 :::note
 Merge reduces the left-hand side and right-hand side by recursively reducing shared document locations. The LHS and RHS must either both be objects, or both be arrays.
@@ -187,9 +187,9 @@ The derivation details are defined in the next section of the yaml:
               - /customer_id
 ```
 
-This tells flow that the transformation code is defined in a TypeScript file called `full-outer-join.flow.ts` (which doesn’t exist – yet!) and that there are in fact two transformations that it expects, one for each source collection.
+This tells Flow that the transformation code is defined in a TypeScript file called `full-outer-join.flow.ts` (which doesn’t exist – yet!) and that there are in fact two transformations that it expects, one for each source collection.
 
-Shuffles let Flow identify the shard that should process a particular source document, in order to co-locate that processing with other documents it may need to know about.
+Shuffles let Flow identify the shard that should process a particular source document in order to co-locate that processing with other documents it may need to know about.
 
 Both transformations shuffle data on the same key. An important detail is that if a derivation has more than one transformation, the shuffle keys of all transformations must align with one another in terms of the extracted key types (string vs integer) as well as the number of components in a composite key.
 
@@ -217,7 +217,7 @@ This command will create a few new files in your current working directory.
 5 directories, 5 files
 ```
 
-The folder `flow_generated` along with the `deno.json` file are two things you won’t have to modify during this tutorial. If you take a look at file that `flowctl` generated under `flow_generated/typescript/<your_working_directory>/<your_prefix>/customers_with_orders.ts` you can see the types you are able to use in your transformations.
+The folder `flow_generated` along with the `deno.json` file are two things you won’t have to modify during this tutorial. If you take a look at the file that `flowctl` generated under `flow_generated/typescript/<your_working_directory>/<your_prefix>/customers_with_orders.ts` you can see the types you are able to use in your transformations.
 
 ```typescript
 // Generated for published documents of derived collection customers_with_orders.
@@ -289,7 +289,7 @@ export class Derivation extends IDerivation {
 }
 ```
 
-As you can see here, all we do is return the fields we need from each document, there’s no code required to define the actual “join” – all the heavy lifting is done in the reduction phase during materialization by the Flow runtime based on the schema you defined earlier.
+As you can see here, all we do is return the fields we need from each document. There’s no code required to define the actual “join” – all the heavy lifting is done in the reduction phase during materialization by the Flow runtime based on the schema you defined earlier.
 
 Publish the derivation using `flowctl`:
 
