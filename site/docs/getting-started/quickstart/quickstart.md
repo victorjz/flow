@@ -77,15 +77,15 @@ UI.
 
 ![Grab your Snowflake account id](https://storage.googleapis.com/estuary-marketing-strapi-uploads/uploads//snowflake_account_id_af1cc78df8/snowflake_account_id_af1cc78df8.png)
 
-After the connection details are in place, the next step is to link the capture we just created to Flow is able to see
+After the connection details are in place, the next step is to link the capture we just created so that Flow is able to see
 collections we are loading data into from Postgres.
 
-You can achieve this by clicking on the “Source from Capture” button, and selecting the name of the capture from the
+You can achieve this by clicking on the **Source from Capture** button, and selecting the name of the capture from the
 table.
 
 ![Link Capture](https://storage.googleapis.com/estuary-marketing-strapi-uploads/uploads//link_source_to_capture_b0d37a738f/link_source_to_capture_b0d37a738f.png)
 
-After pressing continue, you are met with a few configuration options, but for now, feel free to press **Next,** then **Save and Publish** in the top right corner, the defaults will work perfectly fine for this tutorial.
+After pressing continue, you are met with a few configuration options. For now, feel free to press **Next**, then **Save and Publish** in the top right corner, the defaults will work perfectly fine for this tutorial.
 
 A successful deployment will look something like this:
 
